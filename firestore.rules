@@ -1,0 +1,293 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- GLOBAL HARDENED PRIMITIVES ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidTimestamp(ts) {
+      return ts is timestamp && ts <= request.time;
+    }
+
+    function isNumber(v) {
+      return v is int || v is float;
+    }
+
+    // --- ENTITY VALIDATION BLUEPRINTS ---
+    function isValidStore(data, userId) {
+      return data.keys().hasAll([
+               'userId', 'name', 'category', 'address', 'phone', 'gstin', 'upiId',
+               'currencySymbol', 'invoicePrefix', 'thermalWidthMm', 'receiptHeader',
+               'receiptFooter', 'allowNegativeStock', 'createdAt', 'updatedAt'
+             ]) &&
+             data.keys().hasOnly([
+               'userId', 'name', 'category', 'address', 'phone', 'gstin', 'upiId',
+               'currencySymbol', 'invoicePrefix', 'thermalWidthMm', 'receiptHeader',
+               'receiptFooter', 'allowNegativeStock', 'createdAt', 'updatedAt'
+             ]) &&
+             data.userId is string && data.userId == userId &&
+             data.name is string && data.name.size() >= 1 && data.name.size() <= 100 &&
+             data.category is string && data.category.size() >= 1 && data.category.size() <= 60 &&
+             data.address is string && data.address.size() <= 250 &&
+             data.phone is string && data.phone.size() <= 30 &&
+             data.gstin is string && data.gstin.size() <= 30 &&
+             data.upiId is string && data.upiId.size() <= 100 &&
+             data.currencySymbol is string && data.currencySymbol.size() >= 1 && data.currencySymbol.size() <= 8 &&
+             data.invoicePrefix is string && data.invoicePrefix.size() >= 1 && data.invoicePrefix.size() <= 16 &&
+             data.thermalWidthMm is int && (data.thermalWidthMm == 58 || data.thermalWidthMm == 80) &&
+             data.receiptHeader is string && data.receiptHeader.size() <= 200 &&
+             data.receiptFooter is string && data.receiptFooter.size() <= 200 &&
+             data.allowNegativeStock is bool &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidProduct(data, userId) {
+      return data.keys().hasAll([
+               'userId', 'storeId', 'shortCode', 'name', 'sku', 'category',
+               'purchasePrice', 'sellingPrice', 'gstPercent', 'stockQty',
+               'minStockAlert', 'unit', 'qrPayload', 'createdAt', 'updatedAt'
+             ]) &&
+             data.keys().hasOnly([
+               'userId', 'storeId', 'shortCode', 'name', 'sku', 'category',
+               'purchasePrice', 'sellingPrice', 'gstPercent', 'stockQty',
+               'minStockAlert', 'unit', 'qrPayload', 'createdAt', 'updatedAt'
+             ]) &&
+             data.userId is string && data.userId == userId &&
+             isValidId(data.storeId) &&
+             data.shortCode is string && data.shortCode.size() >= 1 && data.shortCode.size() <= 12 &&
+             data.name is string && data.name.size() >= 1 && data.name.size() <= 120 &&
+             data.sku is string && data.sku.size() <= 60 &&
+             data.category is string && data.category.size() <= 60 &&
+             isNumber(data.purchasePrice) && data.purchasePrice >= 0 && data.purchasePrice <= 100000000 &&
+             isNumber(data.sellingPrice) && data.sellingPrice >= 0 && data.sellingPrice <= 100000000 &&
+             isNumber(data.gstPercent) && data.gstPercent >= 0 && data.gstPercent <= 100 &&
+             isNumber(data.stockQty) && data.stockQty >= -1000000 && data.stockQty <= 100000000 &&
+             isNumber(data.minStockAlert) && data.minStockAlert >= 0 && data.minStockAlert <= 100000000 &&
+             data.unit is string && data.unit.size() >= 1 && data.unit.size() <= 24 &&
+             data.qrPayload is string && data.qrPayload.size() >= 1 && data.qrPayload.size() <= 200 &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidSale(data, userId) {
+      return data.keys().hasAll([
+               'userId', 'storeId', 'storeName', 'storeAddress', 'storePhone',
+               'storeGstin', 'storeUpiId', 'currencySymbol', 'receiptHeader',
+               'receiptFooter', 'thermalWidthMm', 'shortBillId', 'invoiceNumber',
+               'paymentMethod', 'items', 'subtotal', 'gstTotal', 'discountAmount',
+               'grandTotal', 'totalCost', 'totalUnits', 'digitalBillUrl',
+               'createdAt', 'updatedAt'
+             ]) &&
+             data.keys().hasOnly([
+               'userId', 'storeId', 'storeName', 'storeAddress', 'storePhone',
+               'storeGstin', 'storeUpiId', 'currencySymbol', 'receiptHeader',
+               'receiptFooter', 'thermalWidthMm', 'shortBillId', 'invoiceNumber',
+               'paymentMethod', 'items', 'subtotal', 'gstTotal', 'discountAmount',
+               'grandTotal', 'totalCost', 'totalUnits', 'digitalBillUrl',
+               'createdAt', 'updatedAt'
+             ]) &&
+             data.userId is string && data.userId == userId &&
+             isValidId(data.storeId) &&
+             data.storeName is string && data.storeName.size() >= 1 && data.storeName.size() <= 100 &&
+             data.storeAddress is string && data.storeAddress.size() <= 250 &&
+             data.storePhone is string && data.storePhone.size() <= 30 &&
+             data.storeGstin is string && data.storeGstin.size() <= 30 &&
+             data.storeUpiId is string && data.storeUpiId.size() <= 100 &&
+             data.currencySymbol is string && data.currencySymbol.size() >= 1 && data.currencySymbol.size() <= 8 &&
+             data.receiptHeader is string && data.receiptHeader.size() <= 200 &&
+             data.receiptFooter is string && data.receiptFooter.size() <= 200 &&
+             data.thermalWidthMm is int && (data.thermalWidthMm == 58 || data.thermalWidthMm == 80) &&
+             data.shortBillId is string && data.shortBillId.size() >= 4 && data.shortBillId.size() <= 24 &&
+             data.invoiceNumber is string && data.invoiceNumber.size() >= 1 && data.invoiceNumber.size() <= 60 &&
+             data.paymentMethod is string && data.paymentMethod in ['CASH', 'UPI', 'CARD', 'OTHER'] &&
+             data.items is list && data.items.size() >= 1 && data.items.size() <= 100 && (data.items[0] is map) &&
+             isNumber(data.subtotal) && data.subtotal >= 0 &&
+             isNumber(data.gstTotal) && data.gstTotal >= 0 &&
+             isNumber(data.discountAmount) && data.discountAmount >= 0 &&
+             isNumber(data.grandTotal) && data.grandTotal >= 0 &&
+             isNumber(data.totalCost) && data.totalCost >= 0 &&
+             isNumber(data.totalUnits) && data.totalUnits >= 0 &&
+             data.digitalBillUrl is string && data.digitalBillUrl.size() >= 1 && data.digitalBillUrl.size() <= 4000 &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidStockLog(data, userId) {
+      return data.keys().hasAll([
+               'userId', 'storeId', 'productId', 'productName', 'shortCode',
+               'deltaQty', 'previousStock', 'newStock', 'reason',
+               'referenceInvoice', 'createdAt'
+             ]) &&
+             data.keys().hasOnly([
+               'userId', 'storeId', 'productId', 'productName', 'shortCode',
+               'deltaQty', 'previousStock', 'newStock', 'reason',
+               'referenceInvoice', 'createdAt'
+             ]) &&
+             data.userId is string && data.userId == userId &&
+             isValidId(data.storeId) &&
+             isValidId(data.productId) &&
+             data.productName is string && data.productName.size() >= 1 && data.productName.size() <= 120 &&
+             data.shortCode is string && data.shortCode.size() >= 1 && data.shortCode.size() <= 12 &&
+             isNumber(data.deltaQty) &&
+             isNumber(data.previousStock) &&
+             isNumber(data.newStock) &&
+             data.reason is string && data.reason in ['SALE', 'RESTOCK', 'ADJUSTMENT', 'INITIAL', 'DAMAGE'] &&
+             data.referenceInvoice is string && data.referenceInvoice.size() <= 60 &&
+             isValidTimestamp(data.createdAt);
+    }
+
+    function isValidScannerRoom(data, userId) {
+      return data.keys().hasAll([
+               'userId', 'roomCode', 'storeId', 'hostDeviceName',
+               'connectedScannerName', 'scannerConnected', 'lastScanCode',
+               'lastScanNonce', 'createdAt', 'updatedAt'
+             ]) &&
+             data.keys().hasOnly([
+               'userId', 'roomCode', 'storeId', 'hostDeviceName',
+               'connectedScannerName', 'scannerConnected', 'lastScanCode',
+               'lastScanNonce', 'createdAt', 'updatedAt'
+             ]) &&
+             data.userId is string && data.userId == userId &&
+             data.roomCode is string && data.roomCode.size() >= 4 && data.roomCode.size() <= 8 &&
+             isValidId(data.storeId) &&
+             data.hostDeviceName is string && data.hostDeviceName.size() >= 1 && data.hostDeviceName.size() <= 100 &&
+             data.connectedScannerName is string && data.connectedScannerName.size() <= 100 &&
+             data.scannerConnected is bool &&
+             data.lastScanCode is string && data.lastScanCode.size() <= 200 &&
+             data.lastScanNonce is int && data.lastScanNonce >= 0 &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    // --- OWNER-SCOPED USER COLLECTIONS ---
+    match /users/{userId} {
+
+      // 1. Business Branches / Stores
+      match /stores/{storeId} {
+        allow get: if isOwner(userId) && isValidId(storeId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) &&
+                         isValidId(storeId) &&
+                         isValidStore(incoming(), userId);
+        allow update: if isOwner(userId) &&
+                         isValidId(storeId) &&
+                         isValidStore(incoming(), userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'name', 'category', 'address', 'phone', 'gstin', 'upiId',
+                           'currencySymbol', 'invoicePrefix', 'thermalWidthMm',
+                           'receiptHeader', 'receiptFooter', 'allowNegativeStock', 'updatedAt'
+                         ]);
+        allow delete: if isOwner(userId) && isValidId(storeId);
+      }
+
+      // 2. Products & Inventory
+      match /products/{productId} {
+        allow get: if isOwner(userId) && isValidId(productId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) &&
+                         isValidId(productId) &&
+                         isValidProduct(incoming(), userId) &&
+                         existsAfter(/databases/$(database)/documents/users/$(userId)/stores/$(incoming().storeId));
+        allow update: if isOwner(userId) &&
+                         isValidId(productId) &&
+                         isValidProduct(incoming(), userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().storeId == existing().storeId &&
+                         incoming().createdAt == existing().createdAt &&
+                         (
+                           // Action: Edit product metadata / pricing / stock
+                           incoming().diff(existing()).affectedKeys().hasOnly([
+                             'shortCode', 'name', 'sku', 'category', 'purchasePrice',
+                             'sellingPrice', 'gstPercent', 'stockQty', 'minStockAlert',
+                             'unit', 'qrPayload', 'updatedAt'
+                           ]) ||
+                           // Action: Stock deduction / restock
+                           incoming().diff(existing()).affectedKeys().hasOnly([
+                             'stockQty', 'updatedAt'
+                           ])
+                         );
+        allow delete: if isOwner(userId) && isValidId(productId);
+      }
+
+      // 3. Sales & Digital Receipts
+      match /sales/{saleId} {
+        allow get: if isOwner(userId) && isValidId(saleId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) &&
+                         isValidId(saleId) &&
+                         isValidSale(incoming(), userId) &&
+                         existsAfter(/databases/$(database)/documents/users/$(userId)/stores/$(incoming().storeId));
+        allow delete: if isOwner(userId) && isValidId(saleId);
+      }
+
+      // 4. Stock Movement Logs (Append-only, owner deletable for cleanup)
+      match /stockLogs/{logId} {
+        allow get: if isOwner(userId) && isValidId(logId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) &&
+                         isValidId(logId) &&
+                         isValidStockLog(incoming(), userId) &&
+                         existsAfter(/databases/$(database)/documents/users/$(userId)/stores/$(incoming().storeId));
+        allow delete: if isOwner(userId) && isValidId(logId);
+      }
+
+      // 5. Wireless Phone-to-Terminal Scanner Rooms
+      match /scannerRooms/{roomCode} {
+        allow get: if isOwner(userId) && isValidId(roomCode);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) &&
+                         isValidId(roomCode) &&
+                         incoming().roomCode == roomCode &&
+                         isValidScannerRoom(incoming(), userId) &&
+                         existsAfter(/databases/$(database)/documents/users/$(userId)/stores/$(incoming().storeId));
+        allow update: if isOwner(userId) &&
+                         isValidId(roomCode) &&
+                         isValidScannerRoom(incoming(), userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().roomCode == existing().roomCode &&
+                         incoming().createdAt == existing().createdAt &&
+                         (
+                           // Action: Connect / disconnect handheld scanner
+                           incoming().diff(existing()).affectedKeys().hasOnly([
+                             'connectedScannerName', 'scannerConnected', 'updatedAt'
+                           ]) ||
+                           // Action: Stream scanned product code
+                           incoming().diff(existing()).affectedKeys().hasOnly([
+                             'lastScanCode', 'lastScanNonce', 'connectedScannerName', 'scannerConnected', 'updatedAt'
+                           ]) ||
+                           // Action: Switch active store or host device
+                           incoming().diff(existing()).affectedKeys().hasOnly([
+                             'storeId', 'hostDeviceName', 'connectedScannerName', 'scannerConnected', 'updatedAt'
+                           ])
+                         );
+        allow delete: if isOwner(userId) && isValidId(roomCode);
+      }
+    }
+  }
+}

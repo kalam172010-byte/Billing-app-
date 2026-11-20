@@ -1,0 +1,221 @@
+{
+  "entities": {
+    "Store": {
+      "title": "Store",
+      "description": "A business branch configuration owned by a store owner, including GSTIN, receipt settings, and thermal paper width.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Authenticated owner UID" },
+        "name": { "type": "string", "description": "Business or branch display name" },
+        "category": { "type": "string", "description": "Business sector such as Retail, Menswear, Supermarket, Grocery, Mobile Shop" },
+        "address": { "type": "string", "description": "Physical store address shown on invoices" },
+        "phone": { "type": "string", "description": "Store contact phone number" },
+        "gstin": { "type": "string", "description": "GST identification number" },
+        "upiId": { "type": "string", "description": "Merchant UPI VPA for receipt display" },
+        "currencySymbol": { "type": "string", "description": "Currency symbol such as ₹ or $" },
+        "invoicePrefix": { "type": "string", "description": "Prefix for generated invoice numbers" },
+        "thermalWidthMm": { "type": "integer", "enum": [58, 80], "description": "Thermal receipt roll width in millimeters" },
+        "receiptHeader": { "type": "string", "description": "Custom header message printed at top of receipts" },
+        "receiptFooter": { "type": "string", "description": "Custom footer message printed at bottom of receipts" },
+        "allowNegativeStock": { "type": "boolean", "description": "Whether POS allows billing when stock falls below zero" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp set via FieldValue.serverTimestamp()" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp set via FieldValue.serverTimestamp()" }
+      },
+      "required": [
+        "userId",
+        "name",
+        "category",
+        "address",
+        "phone",
+        "gstin",
+        "upiId",
+        "currencySymbol",
+        "invoicePrefix",
+        "thermalWidthMm",
+        "receiptHeader",
+        "receiptFooter",
+        "allowNegativeStock",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "Inventory item belonging to a specific business store with unique 4-digit short code and QR payload.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Authenticated owner UID" },
+        "storeId": { "type": "string", "description": "Parent store document ID" },
+        "shortCode": { "type": "string", "description": "Unique 4-digit quick billing code (1001+)" },
+        "name": { "type": "string", "description": "Product name" },
+        "sku": { "type": "string", "description": "Optional SKU or barcode reference" },
+        "category": { "type": "string", "description": "Product category label" },
+        "purchasePrice": { "type": "number", "description": "Unit cost price" },
+        "sellingPrice": { "type": "number", "description": "Unit selling price" },
+        "gstPercent": { "type": "number", "description": "GST tax rate percentage" },
+        "stockQty": { "type": "number", "description": "Current available inventory quantity" },
+        "minStockAlert": { "type": "number", "description": "Minimum stock threshold for low-stock alerts" },
+        "unit": { "type": "string", "description": "Unit of measure (pcs, kg, box, mtr, ltr)" },
+        "qrPayload": { "type": "string", "description": "Encoded QR payload KBP-PROD:<4-digit>:<id>" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp set via FieldValue.serverTimestamp()" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp set via FieldValue.serverTimestamp()" }
+      },
+      "required": [
+        "userId",
+        "storeId",
+        "shortCode",
+        "name",
+        "sku",
+        "category",
+        "purchasePrice",
+        "sellingPrice",
+        "gstPercent",
+        "stockQty",
+        "minStockAlert",
+        "unit",
+        "qrPayload",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Sale": {
+      "title": "Sale",
+      "description": "Completed POS bill with itemized snapshot, GST calculation, and digital receipt URL.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Authenticated owner UID" },
+        "storeId": { "type": "string", "description": "Parent store document ID" },
+        "storeName": { "type": "string", "description": "Snapshot of store name at sale time" },
+        "storeAddress": { "type": "string", "description": "Snapshot of store address" },
+        "storePhone": { "type": "string", "description": "Snapshot of store phone" },
+        "storeGstin": { "type": "string", "description": "Snapshot of store GSTIN" },
+        "storeUpiId": { "type": "string", "description": "Snapshot of store UPI ID" },
+        "currencySymbol": { "type": "string", "description": "Currency symbol used for the invoice" },
+        "receiptHeader": { "type": "string", "description": "Receipt header text snapshot" },
+        "receiptFooter": { "type": "string", "description": "Receipt footer text snapshot" },
+        "thermalWidthMm": { "type": "integer", "enum": [58, 80], "description": "Configured thermal width" },
+        "shortBillId": { "type": "string", "description": "Short 6-character alphanumeric digital bill ID" },
+        "invoiceNumber": { "type": "string", "description": "Formatted sequential invoice number" },
+        "paymentMethod": { "type": "string", "enum": ["CASH", "UPI", "CARD", "OTHER"], "description": "Payment mode" },
+        "items": { "type": "array", "description": "Bounded list of billed line items (1..100)" },
+        "subtotal": { "type": "number", "description": "Pre-tax subtotal amount" },
+        "gstTotal": { "type": "number", "description": "Total GST tax collected" },
+        "discountAmount": { "type": "number", "description": "Flat discount applied to bill" },
+        "grandTotal": { "type": "number", "description": "Final payable amount" },
+        "totalCost": { "type": "number", "description": "Total purchase cost for profit calculation" },
+        "totalUnits": { "type": "number", "description": "Total item units sold" },
+        "digitalBillUrl": { "type": "string", "description": "Self-contained digital bill URL with base64 fallback" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp set via FieldValue.serverTimestamp()" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp set via FieldValue.serverTimestamp()" }
+      },
+      "required": [
+        "userId",
+        "storeId",
+        "storeName",
+        "storeAddress",
+        "storePhone",
+        "storeGstin",
+        "storeUpiId",
+        "currencySymbol",
+        "receiptHeader",
+        "receiptFooter",
+        "thermalWidthMm",
+        "shortBillId",
+        "invoiceNumber",
+        "paymentMethod",
+        "items",
+        "subtotal",
+        "gstTotal",
+        "discountAmount",
+        "grandTotal",
+        "totalCost",
+        "totalUnits",
+        "digitalBillUrl",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "StockLog": {
+      "title": "StockLog",
+      "description": "Audit trail entry recording stock deductions from POS sales or manual inventory adjustments.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Authenticated owner UID" },
+        "storeId": { "type": "string", "description": "Parent store document ID" },
+        "productId": { "type": "string", "description": "Affected product document ID" },
+        "productName": { "type": "string", "description": "Product name snapshot" },
+        "shortCode": { "type": "string", "description": "4-digit product short code snapshot" },
+        "deltaQty": { "type": "number", "description": "Signed quantity change" },
+        "previousStock": { "type": "number", "description": "Stock level before movement" },
+        "newStock": { "type": "number", "description": "Stock level after movement" },
+        "reason": { "type": "string", "enum": ["SALE", "RESTOCK", "ADJUSTMENT", "INITIAL", "DAMAGE"], "description": "Inventory movement reason" },
+        "referenceInvoice": { "type": "string", "description": "Associated invoice number or audit note" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp set via FieldValue.serverTimestamp()" }
+      },
+      "required": [
+        "userId",
+        "storeId",
+        "productId",
+        "productName",
+        "shortCode",
+        "deltaQty",
+        "previousStock",
+        "newStock",
+        "reason",
+        "referenceInvoice",
+        "createdAt"
+      ]
+    },
+    "ScannerRoom": {
+      "title": "ScannerRoom",
+      "description": "Real-time wireless phone-to-terminal pairing session streaming scanned product codes into the POS cart.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Authenticated owner UID" },
+        "roomCode": { "type": "string", "description": "4-digit terminal pairing code" },
+        "storeId": { "type": "string", "description": "Active store document ID" },
+        "hostDeviceName": { "type": "string", "description": "Host POS terminal device label" },
+        "connectedScannerName": { "type": "string", "description": "Connected handheld scanner device name" },
+        "scannerConnected": { "type": "boolean", "description": "Whether a remote scanner is currently paired" },
+        "lastScanCode": { "type": "string", "description": "Most recently scanned product QR or 4-digit short code" },
+        "lastScanNonce": { "type": "integer", "description": "Monotonic counter distinguishing repeated scans of the same code" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp set via FieldValue.serverTimestamp()" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp set via FieldValue.serverTimestamp()" }
+      },
+      "required": [
+        "userId",
+        "roomCode",
+        "storeId",
+        "hostDeviceName",
+        "connectedScannerName",
+        "scannerConnected",
+        "lastScanCode",
+        "lastScanNonce",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}/stores/{storeId}": {
+      "schema": { "$ref": "#/entities/Store" },
+      "description": "Owner-scoped business branch profiles and receipt configuration."
+    },
+    "/users/{userId}/products/{productId}": {
+      "schema": { "$ref": "#/entities/Product" },
+      "description": "Owner-scoped product inventory with 4-digit codes and QR metadata."
+    },
+    "/users/{userId}/sales/{saleId}": {
+      "schema": { "$ref": "#/entities/Sale" },
+      "description": "Owner-scoped completed POS invoices and digital receipt payloads."
+    },
+    "/users/{userId}/stockLogs/{logId}": {
+      "schema": { "$ref": "#/entities/StockLog" },
+      "description": "Owner-scoped stock movement audit history."
+    },
+    "/users/{userId}/scannerRooms/{roomCode}": {
+      "schema": { "$ref": "#/entities/ScannerRoom" },
+      "description": "Owner-scoped wireless scanner pairing sessions for live barcode/QR streaming."
+    }
+  }
+}

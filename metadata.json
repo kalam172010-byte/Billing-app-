@@ -1,0 +1,6 @@
+{
+  "name": "Kalam Billing Pro",
+  "description": "Multi-business POS billing, QR code inventory, wireless scanner pairing, digital QR & NFC HCE receipts, and GST sales analytics.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

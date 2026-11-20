@@ -1,0 +1,33 @@
+<resources>
+    <string name="app_name">Kalam Billing Pro</string>
+    <string name="brand_wordmark">KALAM BILLING PRO</string>
+    <string name="nfc_hce_service_desc">Kalam Billing Pro Digital Receipt NFC Tap</string>
+    <string name="nfc_hce_aid_group_desc">NFC Forum Type 4 NDEF Tag Emulation</string>
+    <string name="auth_headline">Fast POS Billing &amp; GST Inventory</string>
+    <string name="auth_subtitle">Multi-business counter billing, QR inventory sheets, wireless handheld scanning, and instant NFC digital receipts synced securely to your cloud account.</string>
+    <string name="auth_sign_in_google">Sign in with Google</string>
+    <string name="nav_pos_counter">POS Counter</string>
+    <string name="nav_dashboard">Dashboard</string>
+    <string name="nav_products">Products</string>
+    <string name="nav_qr_sheet">QR Sheet</string>
+    <string name="nav_reports">Reports</string>
+    <string name="nav_store_settings">Store &amp; Receipt Settings</string>
+    <string name="nav_offline_sync">Offline Mode &amp; Sync</string>
+    <string name="nav_handheld_scanner">Handheld Scanner Mode</string>
+    <string name="nav_wireless_room">Wireless Scanner Hub</string>
+    <string name="mode_admin_panel">Admin Panel</string>
+    <string name="mode_pos_counter">POS Counter</string>
+    <string name="action_generate_bill">Generate Bill</string>
+    <string name="action_print_receipt">Print Receipt</string>
+    <string name="action_download_pdf">Download PDF Bill</string>
+    <string name="action_download_image">Download Receipt Image</string>
+    <string name="action_tap_nfc">Tap NFC to Send Bill</string>
+    <string name="action_preview_digital_bill">Open Customer Digital Bill</string>
+    <string name="action_sign_out">Sign Out</string>
+    <string name="cd_open_menu">Open navigation drawer</string>
+    <string name="cd_navigate_back">Navigate back</string>
+    <string name="cd_scan_qr">Scan product QR code</string>
+    <string name="cd_wireless_scanner">Wireless phone scanner room</string>
+    <string name="cd_offline_status">Offline mode and sync settings</string>
+    <string name="cd_qr_code_image">Scannable QR code</string>
+</resources>
