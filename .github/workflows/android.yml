@@ -7,6 +7,9 @@ on:
     branches: [ main, master ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     name: Build & Test Debug APK
@@ -40,95 +43,173 @@ jobs:
             printf 'FIREBASE_APPCHECK_DEBUG_TOKEN=\n' > .env.example
           fi
 
-      - name: Prepare debug keystore
+      - name: Prepare & validate debug keystore
         run: |
-          if [ ! -s debug.keystore ]; then
-            if [ -s debug.keystore.base64 ]; then
-              base64 -d debug.keystore.base64 > debug.keystore
-            else
-              echo "::warning::debug.keystore.base64 not found; generating a temporary CI debug keystore."
-              keytool -genkeypair -v \
-                -keystore debug.keystore \
-                -storepass android \
-                -alias androiddebugkey \
-                -keypass android \
-                -keyalg RSA \
-                -keysize 2048 \
-                -validity 10000 \
-                -dname "CN=Android Debug,O=Android,C=US"
-            fi
+          if [ ! -s debug.keystore ] && [ -s debug.keystore.base64 ]; then
+            tr -d '\r\n ' < debug.keystore.base64 | base64 -d > debug.keystore || rm -f debug.keystore
+          fi
+          if [ ! -s debug.keystore ] || ! keytool -list -keystore debug.keystore -storepass android -alias androiddebugkey >/dev/null 2>&1; then
+            echo "::warning::Valid debug.keystore not found; generating a clean CI debug keystore."
+            rm -f debug.keystore
+            keytool -genkeypair -v \
+              -keystore debug.keystore \
+              -storepass android \
+              -alias androiddebugkey \
+              -keypass android \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -dname "CN=Android Debug,O=Android,C=US"
           fi
 
-      - name: Prepare app/google-services.json
+      - name: Prepare & validate app/google-services.json
         env:
           GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
         run: |
-          if [ ! -s app/google-services.json ]; then
-            if [ -n "$GOOGLE_SERVICES_JSON" ]; then
-              if printf '%s' "$GOOGLE_SERVICES_JSON" | grep -q '"project_info"'; then
-                printf '%s' "$GOOGLE_SERVICES_JSON" > app/google-services.json
-              else
-                printf '%s' "$GOOGLE_SERVICES_JSON" | base64 -d > app/google-services.json
-              fi
-            else
-              echo "::warning::app/google-services.json not found and GOOGLE_SERVICES_JSON secret is unset; using a CI placeholder so APK compilation succeeds. Add GOOGLE_SERVICES_JSON to GitHub Secrets for live Firebase Auth & Firestore."
-              cat <<'EOF' > app/google-services.json
-          {
-            "project_info": {
-              "project_number": "000000000000",
-              "project_id": "ci-placeholder-project",
-              "storage_bucket": "ci-placeholder-project.firebasestorage.app"
-            },
-            "client": [
-              {
-                "client_info": {
-                  "mobilesdk_app_id": "1:000000000000:android:0000000000000000000000",
-                  "android_client_info": {
-                    "package_name": "com.aistudio.kalambillingpro.rkvtxm"
-                  }
-                },
-                "oauth_client": [
-                  {
-                    "client_id": "000000000000-ciplaceholder.apps.googleusercontent.com",
-                    "client_type": 3
-                  }
-                ],
-                "api_key": [
-                  {
-                    "current_key": "ci-placeholder-key"
-                  }
-                ],
-                "services": {
-                  "appinvite_service": {
-                    "other_platform_oauth_client": [
+          python3 - <<'PY'
+          import base64, json, os, pathlib
+
+          APP_ID = "com.aistudio.kalambillingpro.rkvtxm"
+          GS_PATH = pathlib.Path("app/google-services.json")
+          PLACEHOLDER_WEB_CLIENT = "000000000000-ciplaceholder.apps.googleusercontent.com"
+
+          def make_placeholder():
+              return {
+                  "project_info": {
+                      "project_number": "000000000000",
+                      "project_id": "ci-placeholder-project",
+                      "storage_bucket": "ci-placeholder-project.firebasestorage.app",
+                  },
+                  "client": [
                       {
-                        "client_id": "000000000000-ciplaceholder.apps.googleusercontent.com",
-                        "client_type": 3
+                          "client_info": {
+                              "mobilesdk_app_id": "1:000000000000:android:0000000000000000000000",
+                              "android_client_info": {"package_name": APP_ID},
+                          },
+                          "oauth_client": [
+                              {"client_id": PLACEHOLDER_WEB_CLIENT, "client_type": 3}
+                          ],
+                          "api_key": [{"current_key": "ci-placeholder-key"}],
+                          "services": {
+                              "appinvite_service": {
+                                  "other_platform_oauth_client": [
+                                      {"client_id": PLACEHOLDER_WEB_CLIENT, "client_type": 3}
+                                  ]
+                              }
+                          },
                       }
-                    ]
-                  }
-                }
+                  ],
+                  "configuration_version": "1",
               }
-            ],
-            "configuration_version": "1"
-          }
-          EOF
-            fi
-          fi
-          python3 -m json.tool app/google-services.json > /dev/null
+
+          def parse_secret(raw: str):
+              raw = raw.strip()
+              if not raw:
+                  return None
+              try:
+                  return json.loads(raw)
+              except Exception:
+                  decoded = base64.b64decode(raw).decode("utf-8")
+                  return json.loads(decoded)
+
+          data = None
+          source = None
+
+          secret_raw = os.environ.get("GOOGLE_SERVICES_JSON", "")
+          if secret_raw.strip():
+              data = parse_secret(secret_raw)
+              source = "GOOGLE_SERVICES_JSON secret"
+          elif GS_PATH.is_file() and GS_PATH.stat().st_size > 0:
+              try:
+                  data = json.loads(GS_PATH.read_text(encoding="utf-8"))
+                  source = "committed app/google-services.json"
+              except Exception as exc:
+                  print(f"::warning::Existing app/google-services.json is invalid JSON ({exc}); falling back to CI placeholder.")
+
+          if not isinstance(data, dict) or not isinstance(data.get("client"), list):
+              print("::warning::app/google-services.json missing and GOOGLE_SERVICES_JSON secret unset; writing CI placeholder so APK builds. Add GOOGLE_SERVICES_JSON secret for live Firebase Auth & Firestore.")
+              data = make_placeholder()
+              source = "CI placeholder"
+
+          matching = [
+              c for c in data["client"]
+              if isinstance(c, dict)
+              and c.get("client_info", {}).get("android_client_info", {}).get("package_name") == APP_ID
+          ]
+
+          if not matching:
+              print(f"::warning::No client entry for {APP_ID} in {source}; injecting CI client entry so default_web_client_id resolves.")
+              data["client"].append(make_placeholder()["client"][0])
+              matching = [data["client"][-1]]
+
+          client = matching[0]
+          oauth_clients = client.setdefault("oauth_client", [])
+          has_web_client = any(
+              isinstance(o, dict) and o.get("client_type") == 3 and o.get("client_id")
+              for o in oauth_clients
+          )
+          if not has_web_client:
+              print(f"::warning::No OAuth client_type=3 found for {APP_ID} in {source}; adding CI placeholder web client ID so default_web_client_id compiles.")
+              oauth_clients.append({"client_id": PLACEHOLDER_WEB_CLIENT, "client_type": 3})
+
+          GS_PATH.parent.mkdir(parents=True, exist_ok=True)
+          GS_PATH.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+          print(f"Prepared app/google-services.json from {source} (verified package {APP_ID} and OAuth client_type=3).")
+          PY
 
       - name: Build Debug APK
-        run: gradle :app:assembleDebug --no-daemon --no-build-cache --stacktrace
+        run: gradle :app:assembleDebug --no-daemon --no-build-cache --no-configuration-cache --stacktrace
+
+      - name: Align, Sign (v1+v2+v3) & Verify APK
+        run: |
+          SDK_ROOT="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          BUILD_TOOLS="$(find "$SDK_ROOT/build-tools" -maxdepth 1 -mindepth 1 -type d | sort -V | tail -n 1)"
+          RAW_APK="app/build/outputs/apk/debug/app-debug.apk"
+          ALIGNED_APK="app/build/outputs/apk/debug/app-debug-aligned.apk"
+          FINAL_APK="app/build/outputs/apk/debug/KalamBillingPro-debug.apk"
+
+          "$BUILD_TOOLS/zipalign" -P 16 -f 4 "$RAW_APK" "$ALIGNED_APK" 2>/dev/null || \
+            "$BUILD_TOOLS/zipalign" -p -f 4 "$RAW_APK" "$ALIGNED_APK"
+
+          "$BUILD_TOOLS/apksigner" sign \
+            --ks debug.keystore \
+            --ks-key-alias androiddebugkey \
+            --ks-pass pass:android \
+            --key-pass pass:android \
+            --min-sdk-version 21 \
+            --v1-signing-enabled true \
+            --v2-signing-enabled true \
+            --v3-signing-enabled true \
+            --out "$FINAL_APK" \
+            "$ALIGNED_APK"
+
+          cp "$FINAL_APK" "$RAW_APK"
+          rm -f "$ALIGNED_APK" "${FINAL_APK}.idsig"
+
+          "$BUILD_TOOLS/apksigner" verify --verbose --min-sdk-version 21 "$FINAL_APK"
+          "$BUILD_TOOLS/aapt2" dump badging "$FINAL_APK" | head -n 10
 
       - name: Upload Debug APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: kalam-billing-pro-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: app/build/outputs/apk/debug/KalamBillingPro-debug.apk
           if-no-files-found: error
 
+      - name: Publish direct APK download to GitHub Release
+        if: github.event_name != 'pull_request'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release view latest-debug >/dev/null 2>&1 || \
+            gh release create latest-debug \
+              --title "Latest Debug APK" \
+              --notes "Direct APK download for Kalam Billing Pro (v1+v2+v3 signed, 16KB aligned). Tap KalamBillingPro-debug.apk directly on Android to install without extracting a ZIP."
+          gh release upload latest-debug app/build/outputs/apk/debug/KalamBillingPro-debug.apk --clobber
+
       - name: Run unit tests
-        run: gradle :app:testDebugUnitTest --no-daemon --no-build-cache --stacktrace
+        run: gradle :app:testDebugUnitTest --no-daemon --no-build-cache --no-configuration-cache --stacktrace
 
       - name: Upload test reports
         if: always()
