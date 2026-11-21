@@ -22,14 +22,12 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
-      - name: Set up Android SDK & accept licenses
-        uses: android-actions/setup-android@v3
-
-      - name: Accept Android SDK licenses & install required components
+      - name: Accept Android SDK licenses
         run: |
-          yes | sdkmanager --licenses > /dev/null 2>&1 || true
-          sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0" || true
-          sdkmanager "platforms;android-36.1" || true
+          SDK_MANAGER="${ANDROID_HOME:-$ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager"
+          if [ -x "$SDK_MANAGER" ]; then
+            yes | "$SDK_MANAGER" --licenses > /dev/null 2>&1 || true
+          fi
 
       - name: Set up Gradle 9.3.1
         uses: gradle/actions/setup-gradle@v4
@@ -44,8 +42,8 @@ jobs:
 
       - name: Prepare debug keystore
         run: |
-          if [ ! -f debug.keystore ]; then
-            if [ -f debug.keystore.base64 ] && [ -s debug.keystore.base64 ]; then
+          if [ ! -s debug.keystore ]; then
+            if [ -s debug.keystore.base64 ]; then
               base64 -d debug.keystore.base64 > debug.keystore
             else
               echo "::warning::debug.keystore.base64 not found; generating a temporary CI debug keystore."
@@ -65,7 +63,7 @@ jobs:
         env:
           GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
         run: |
-          if [ ! -f app/google-services.json ]; then
+          if [ ! -s app/google-services.json ]; then
             if [ -n "$GOOGLE_SERVICES_JSON" ]; then
               if printf '%s' "$GOOGLE_SERVICES_JSON" | grep -q '"project_info"'; then
                 printf '%s' "$GOOGLE_SERVICES_JSON" > app/google-services.json
@@ -78,7 +76,8 @@ jobs:
           {
             "project_info": {
               "project_number": "000000000000",
-              "project_id": "ci-placeholder-project"
+              "project_id": "ci-placeholder-project",
+              "storage_bucket": "ci-placeholder-project.firebasestorage.app"
             },
             "client": [
               {
@@ -116,9 +115,10 @@ jobs:
           EOF
             fi
           fi
+          python3 -m json.tool app/google-services.json > /dev/null
 
       - name: Build Debug APK
-        run: gradle :app:assembleDebug --no-daemon --stacktrace
+        run: gradle :app:assembleDebug --no-daemon --no-build-cache --stacktrace
 
       - name: Upload Debug APK artifact
         uses: actions/upload-artifact@v4
@@ -128,7 +128,7 @@ jobs:
           if-no-files-found: error
 
       - name: Run unit tests
-        run: gradle :app:testDebugUnitTest --no-daemon --stacktrace
+        run: gradle :app:testDebugUnitTest --no-daemon --no-build-cache --stacktrace
 
       - name: Upload test reports
         if: always()
