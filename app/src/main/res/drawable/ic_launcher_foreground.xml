@@ -3,6 +3,6 @@
     <item
         android:width="66dp"
         android:height="66dp"
-        android:drawable="@drawable/kalam_pos_icon_fg_1795175963872"
+        android:drawable="@drawable/kalam_pos_icon_fg"
         android:gravity="center" />
 </layer-list>

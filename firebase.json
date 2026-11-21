@@ -1,7 +1,7 @@
 {
   "firestore": [
     {
-      "database": "ai-studio-android-kalambil-76660ead-fe68-461d-9547-d013815c935e",
+      "database": "ai-studio-android-billinga-f9db647a-1701-456c-8e95-d162e309b531",
       "rules": "firestore.rules"
     }
   ],
